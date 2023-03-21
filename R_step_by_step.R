@@ -400,3 +400,119 @@ whatisthis(perf) # gives class of the variable
 perf %>% tidy() %>% select(c("p.value")) %>% slice(-1)
 #'perf %>% tidy() %>% select(c("p.value")) %>% slice(-1) %>% p.adjust()
 perf %>% tidy() %>% select(c("p.value")) %>% slice(-1) %>% unlist() %>% p.adjust()
+
+#'Working with data sets and ggplot2
+data(starwars) #regenerates original table/data
+#'
+#'ggplot(starwars, aes(x=height, y=mass))
+#'> ggplot(starwars, aes(x=height, y=mass))+geom_point()
+#'Warning message:
+#'  Removed 28 rows containing missing values (`geom_point()`). 
+#'> ggplot(starwars, aes(x=height, y=mass, col=birth_year))+geom_point()
+#'Warning message:
+#'  Removed 28 rows containing missing values (`geom_point()`). 
+#'  
+#'> ggplot(starwars, aes(x=height, y=mass, col=coalesce(birth_year, -1)))+geom_point()
+#'Warning message:
+#'  Removed 28 rows containing missing values (`geom_point()`). 
+#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(birth_year, -1)))+geom_point()
+#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(sex, "")))+geom_point()
+#'ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(sex, "NA")))+geom_point()
+#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(hair_color, "NA"), size=coalesce(birth_year, -1), shape=coalesce(sex, "NA"), alpha=coalesce(birth_year*-1, -1)))+geom_point()
+#'
+#'#Use facet_wrap(variable) to split into multiple graphs by homeworld
+#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(hair_color, "NA"), size=coalesce(birth_year, -1), shape=coalesce(sex, "NA"), alpha=coalesce(birth_year*-1, -1)))+geom_point()+facet_wrap(vars(homeworld))
+#'
+#'Exploring a data set
+explore::describe(starwars)
+
+#'Factors are numeric data that should be treated based on levels, not its inherent number
+#'
+#'Transforming a numeric into a categorical
+cut(starwars$height, c(-Inf, 167, 180, 191, Inf)) %>% table(useNA = "ifany")
+#'Define the levels for the breaks listed
+cut(starwars$height, c(-Inf, 167, 180, 191, Inf)) %>% levels()
+#[1] "(-Inf,167]" "(167,180]"  "(180,191]"  "(191, Inf]"
+cut(starwars$height, c(-Inf, 167, 180, 191, Inf), right = FALSE) %>% levels()
+#[1] "[-Inf,167)" "[167,180)"  "[180,191)"  "[191, Inf)"
+#' Rename the levels
+cut(starwars$height, c(-Inf, 167, 180, 191, Inf), right = FALSE, labels = c("a", "b", "c", "d")) %>% levels()
+#[1] "a" "b" "c" "d"
+cut(starwars$height, c(-Inf, 167, 180, 191, Inf), right = FALSE, labels = c("a", "b", "c", "d")) %>% table(useNA = "ifany")
+#a    b    c    d <NA> 
+#  20   18   21   22    6 
+
+#cut_interval (ggplot2) divides into number of groups with equal range (# of groups is the second argument)
+cut_interval(starwars$height, 4) %>% table(useNA = "ifany")
+#[66,116] (116,165] (165,214] (214,264]      <NA> 
+#  8        11        56         6         6 
+
+#cut_number divides into number of groups w/ equal numbers of observations
+cut_number(starwars$height, 4) %>% table(useNA = "ifany")
+#[66,167] (167,180] (180,191] (191,264]      <NA> 
+#  22        21        19        19         6 
+
+#cut_width makes groups of width
+cut_width(starwars$height, 100) %>% table(useNA = "ifany")
+
+#Integrate the cut columns into the table using mutate
+mutate(starwars, 
+       height_quartile = cut(starwars$height, 
+                             c(-Inf, 167, 180, 191, Inf), right = FALSE, 
+                             labels = c("a", "b", "c", "d"))) %>% 
+  ggplot(aes(x=coalesce(height,-1), y=coalesce(mass, -1), 
+             col=coalesce(hair_color, "NA"), size=coalesce(birth_year, -1), 
+             shape=coalesce(sex, "NA"), alpha=coalesce(birth_year*-1, -1)))+
+  geom_point()+facet_wrap(vars(homeworld))
+
+#Bring coalesce in front, so you can remove the coalesce when you pipe
+mutate(
+  starwars,
+  height_quartile = cut(
+    height,
+    c(-Inf, 167, 180, 191, Inf),
+    right = FALSE,
+    labels = c("a", "b", "c", "d")
+  ),
+  height = coalesce(height, -1)
+) %>% ggplot(
+  aes(
+    x = height,
+    y = coalesce(mass, -1),
+    col = coalesce(hair_color, "NA"),
+    size = coalesce(birth_year, -1),
+    shape = coalesce(sex, "NA"),
+    alpha = coalesce(birth_year * -1, -1)
+  )
+) + geom_point() + facet_wrap(vars(homeworld))
+
+#Coalesce across all numeric values
+mutate(
+  starwars,
+  height_quartile = cut(
+    height,
+    c(-Inf, 167, 180, 191, Inf),
+    right = FALSE,
+    labels = c("a", "b", "c", "d")
+  ),
+  across(
+    is.numeric,
+    ~ coalesce(.x, -1)),
+    across(is.character, ~ coalesce(.x, "NA"))
+  ) %>% ggplot(
+    aes(
+      x = height,
+      y = mass,
+      col = hair_color,
+      size = birth_year,
+      shape = sex,
+      alpha = birth_year * -1
+    )
+  ) + geom_point() + facet_wrap(vars(homeworld))
+
+#Coalesce character values (using old is.character)
+mutate(starwars, height_quartile = cut(height, c(-Inf, 167, 180, 191, Inf), right = FALSE, labels = c("a", "b", "c", "d")), across(is.numeric, ~coalesce(.x, -1), across(is.character, ~coalesce(.x, "NA")))) %>% ggplot(aes(x=height, y=mass, col=hair_color, size=birth_year, shape=sex, alpha=birth_year*-1))+geom_point()+facet_wrap(vars(homeworld))
+
+#Coalesce character/numeric using where.is
+mutate(starwars, height_quartile = cut(height, c(-Inf, 167, 180, 191, Inf), right = FALSE, labels = c("a", "b", "c", "d")), across(where(is.numeric), ~coalesce(.x, -1)), across(where(is.character), ~coalesce(.x, "NA"))) %>% ggplot(aes(x=height, y=mass, col=hair_color, size=birth_year, shape=sex, alpha=birth_year*-1))+geom_point()+facet_wrap(vars(homeworld))
+'  Unique column describes how many unique items exist
