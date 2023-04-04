@@ -403,27 +403,31 @@ perf %>% tidy() %>% select(c("p.value")) %>% slice(-1) %>% unlist() %>% p.adjust
 
 #'Working with data sets and ggplot2
 data(starwars) #regenerates original table/data
-#'
-#'ggplot(starwars, aes(x=height, y=mass))
-#'> ggplot(starwars, aes(x=height, y=mass))+geom_point()
-#'Warning message:
-#'  Removed 28 rows containing missing values (`geom_point()`). 
-#'> ggplot(starwars, aes(x=height, y=mass, col=birth_year))+geom_point()
-#'Warning message:
-#'  Removed 28 rows containing missing values (`geom_point()`). 
-#'  
-#'> ggplot(starwars, aes(x=height, y=mass, col=coalesce(birth_year, -1)))+geom_point()
-#'Warning message:
-#'  Removed 28 rows containing missing values (`geom_point()`). 
-#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(birth_year, -1)))+geom_point()
-#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(sex, "")))+geom_point()
-#'ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(sex, "NA")))+geom_point()
-#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(hair_color, "NA"), size=coalesce(birth_year, -1), shape=coalesce(sex, "NA"), alpha=coalesce(birth_year*-1, -1)))+geom_point()
-#'
-#'#Use facet_wrap(variable) to split into multiple graphs by homeworld
-#'> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(hair_color, "NA"), size=coalesce(birth_year, -1), shape=coalesce(sex, "NA"), alpha=coalesce(birth_year*-1, -1)))+geom_point()+facet_wrap(vars(homeworld))
-#'
-#'Exploring a data set
+
+#Smaller data set with species & homeworld
+starwars <- subset(starwars,species %in% c('Human','Droid','Gungan')&homeworld %in% c('Naboo','Tatooine','Kamino'))
+
+#
+#ggplot(starwars, aes(x=height, y=mass))
+#> ggplot(starwars, aes(x=height, y=mass))+geom_point()
+#Warning message:
+#  Removed 28 rows containing missing values (`geom_point()`). 
+#> ggplot(starwars, aes(x=height, y=mass, col=birth_year))+geom_point()
+#Warning message:
+#  Removed 28 rows containing missing values (`geom_point()`). 
+#  
+#> ggplot(starwars, aes(x=height, y=mass, col=coalesce(birth_year, -1)))+geom_point()
+#Warning message:
+#  Removed 28 rows containing missing values (`geom_point()`). 
+#> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(birth_year, -1)))+geom_point()
+#> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(sex, "")))+geom_point()
+#ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(sex, "NA")))+geom_point()
+#> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(hair_color, "NA"), size=coalesce(birth_year, -1), shape=coalesce(sex, "NA"), alpha=coalesce(birth_year*-1, -1)))+geom_point()
+#
+#Use facet_wrap(variable) to split into multiple graphs by homeworld
+#> ggplot(starwars, aes(x=coalesce(height,-1), y=coalesce(mass, -1), col=coalesce(hair_color, "NA"), size=coalesce(birth_year, -1), shape=coalesce(sex, "NA"), alpha=coalesce(birth_year*-1, -1)))+geom_point()+facet_wrap(vars(homeworld))
+#
+#' # Exploring a data set
 explore::describe(starwars)
 
 #'Factors are numeric data that should be treated based on levels, not its inherent number
@@ -511,8 +515,83 @@ mutate(
   ) + geom_point() + facet_wrap(vars(homeworld))
 
 #Coalesce character values (using old is.character)
-mutate(starwars, height_quartile = cut(height, c(-Inf, 167, 180, 191, Inf), right = FALSE, labels = c("a", "b", "c", "d")), across(is.numeric, ~coalesce(.x, -1), across(is.character, ~coalesce(.x, "NA")))) %>% ggplot(aes(x=height, y=mass, col=hair_color, size=birth_year, shape=sex, alpha=birth_year*-1))+geom_point()+facet_wrap(vars(homeworld))
+mutate(
+  starwars,
+  height_quartile = cut(
+    height,
+    c(-Inf, 167, 180, 191, Inf),
+    right = FALSE,
+    labels = c("a", "b", "c", "d")
+  ),
+  across(
+    is.numeric,
+    ~ coalesce(.x, -1),
+    across(is.character, ~ coalesce(.x, "NA"))
+  )
+) %>% ggplot(
+  aes(
+    x = height,
+    y = mass,
+    col = hair_color,
+    size = birth_year,
+    shape = sex,
+    alpha = birth_year * -1
+  )
+) + geom_point() + facet_wrap(vars(homeworld))
 
 #Coalesce character/numeric using where.is
-mutate(starwars, height_quartile = cut(height, c(-Inf, 167, 180, 191, Inf), right = FALSE, labels = c("a", "b", "c", "d")), across(where(is.numeric), ~coalesce(.x, -1)), across(where(is.character), ~coalesce(.x, "NA"))) %>% ggplot(aes(x=height, y=mass, col=hair_color, size=birth_year, shape=sex, alpha=birth_year*-1))+geom_point()+facet_wrap(vars(homeworld))
-'  Unique column describes how many unique items exist
+mutate(
+  starwars,
+  height_quartile = cut(
+    height,
+    c(-Inf, 167, 180, 191, Inf),
+    right = FALSE,
+    labels = c("a", "b", "c", "d")
+  ),
+  across(where(is.numeric), ~ coalesce(.x, -1)),
+  across(where(is.character), ~ coalesce(.x, "NA"))
+) %>% ggplot(
+  aes(
+    x = height,
+    y = mass,
+    col = hair_color,
+    size = birth_year,
+    shape = sex,
+    alpha = birth_year * -1
+)) + geom_point() + facet_wrap(vars(homeworld))
+
+#Use facet_grid to add additional column to table grid
+mutate(
+  starwars,
+  height_quartile = cut(
+    height,
+    c(-Inf, 167, 180, 191, Inf),
+    right = FALSE,
+    labels = c("a", "b", "c", "d")
+  ),
+  across(where(is.numeric), ~ coalesce(.x, -1)),
+  across(where(is.character), ~ coalesce(.x, "NA"))
+) %>% ggplot(
+  aes(
+    x = height,
+    y = mass,
+    col = hair_color,
+    size = birth_year,
+    shape = sex,
+    alpha = birth_year * -1
+  )) + geom_point() + facet_grid(rows=vars(homeworld), cols=vars(species))
+
+
+#'Generate density plot from random numbers and superimpose lines using base R
+#> c(rnorm(1000, mean = 3), rnorm(1000, mean = 7, sd = 2)) %>% density() %>% plot()
+# > c(rnorm(1000, mean = 3), rnorm(1000, mean = 7, sd = 2)) %>% density() %>% lines
+#> c(rnorm(1000, mean = 3), rnorm(1000, mean = 7, sd = 2)) %>% density() %>% lines(col = "red")
+#> abline(v=6)
+#> abline(h=0.12)
+#> abline(h=0.12, col = "green", lty = 2)
+
+
+#Blank line
+
+
+
